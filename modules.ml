@@ -74,14 +74,26 @@ module Subst : SUBST =
 
 (* Section 2.4: Abstract syntax for the base language *)
 
-module type CORE_SYNTAX =
-  sig
+module type CORE_SYNTAX = sig
+    (** AST for definitions of value names 
+        (i.e. expressions in a functional language) *)  
     type term
+    
+    (** Type expressions for terms
+        - In ML, [val_type]'s are type schemes *)
     type val_type
+
+    (** Type expressions that can be bound to a type name 
+        - In ML, type constructors (parameterized types) are [def_type]'s *)
     type def_type
+    
+    (** In ML, the [kind] of a [def_type] is the arity of a type constructor *)
     type kind
+    
     val subst_valtype: val_type -> Subst.t -> val_type
+    
     val subst_deftype: def_type -> Subst.t -> def_type
+    
     val subst_kind: kind -> Subst.t -> kind
   end
 
@@ -241,13 +253,21 @@ module type CORE_TYPING =
   sig
     module Core: CORE_SYNTAX
     module Env: ENV with module Mod.Core = Core
-(* Typing functions *)
+    
+    (* Typing functions *)
     val type_term: Env.t -> Core.term -> Core.val_type
     val kind_deftype: Env.t -> Core.def_type -> Core.kind
     val check_valtype: Env.t -> Core.val_type -> unit
     val check_kind: Env.t -> Core.kind -> unit
-(* Type matching functions *)
+    
+    (* Type matching functions *)
+    
     val valtype_match: Env.t -> Core.val_type -> Core.val_type -> bool
+    
+    (** [deftype_equiv e k t1 t2] checks that the definable types [t1] and [t2],
+        are equivalent when viewed at kind [k] 
+        - identical modulo the type equalities induced by manifest type 
+        specifications contained in [e] *)
     val deftype_equiv:
           Env.t -> Core.kind -> Core.def_type -> Core.def_type -> bool
     val kind_match: Env.t -> Core.kind -> Core.kind -> bool
@@ -320,6 +340,7 @@ module Mod_typing
           then error "type components do not match"
       | (Module_sig(_, mty1), Module_sig(_, mty2)) ->
           modtype_match env mty1 (Mod.subst_modtype mty2 subst)
+      | _ -> error "invalid argument"
     and typedecl_match env id decl1 decl2 =
       CT.kind_match env decl1.kind decl2.kind &&
       (match (decl1.manifest, decl2.manifest) with
